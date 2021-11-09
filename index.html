@@ -193,6 +193,101 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/09/MySQL/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/tx.jpg">
+      <meta itemprop="name" content="soulmate">
+      <meta itemprop="description" content="加油呀">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="soulmate'space">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/11/09/MySQL/" class="post-title-link" itemprop="url">SQL查询语句的执行过程</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-11-09 09:02:53 / 修改时间：10:47:11" itemprop="dateCreated datePublished" datetime="2021-11-09T09:02:53+08:00">2021-11-09</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h2 id="简要说明查询语句的执行过程"><a href="#简要说明查询语句的执行过程" class="headerlink" title="简要说明查询语句的执行过程"></a>简要说明查询语句的执行过程</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt;select * from T where id = 1;</span><br></pre></td></tr></table></figure>
+
+<p>客户端先和连接器建立连接，查询缓存中是否有所要查询的数据，有则直接返回结果，没有则先通过分析器分析词法，语法是否合法，优化器选择最佳执行方案，执行器执行操作，返回结果</p>
+<p>如下图：</p>
+<p><img src="C:\Users\soulmate\AppData\Roaming\Typora\typora-user-images\image-20211109092905709.png" alt="image-20211109092905709"></p>
+<h2 id="MySQL分为server层和存储引擎层"><a href="#MySQL分为server层和存储引擎层" class="headerlink" title="MySQL分为server层和存储引擎层"></a>MySQL分为server层和存储引擎层</h2><h3 id="server层："><a href="#server层：" class="headerlink" title="server层："></a>server层：</h3><ul>
+<li>连接器</li>
+<li>分析器</li>
+<li>优化器</li>
+<li>执行器</li>
+<li>查询缓存</li>
+</ul>
+<h3 id="存储引擎"><a href="#存储引擎" class="headerlink" title="存储引擎"></a>存储引擎</h3><ul>
+<li>其架构是插件式的，支持多个存储引擎</li>
+<li>默认是InnoDB存储引擎</li>
+<li>建表时可以指定其他引擎：engine = Memory</li>
+<li>所有引擎共用一个server层</li>
+</ul>
+<h2 id="连接器"><a href="#连接器" class="headerlink" title="连接器"></a>连接器</h2><h3 id="1、连接语句"><a href="#1、连接语句" class="headerlink" title="1、连接语句"></a>1、连接语句</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql -h$ip -P$port -u$user -p</span><br><span class="line">密码可以直接在后面写，但这样是明文显示，有密码泄露的风险，不建议这样做</span><br></pre></td></tr></table></figure>
+
+<p>客户端与服务端进行TCP连接：</p>
+<p>——连接器认证身份</p>
+<p>​        ——认证不通过返回”Access denied for user”</p>
+<p>​        ——认证通过，查询所拥有的权限，之后的权限判断会基于此时读到的权限</p>
+<p><strong>所以用户连接建立后，管理员修改了权限，但并不会影响此时的连接，需要重新连接权限才会生效</strong></p>
+<h3 id="2、客户端和连接器之间不止一个连接"><a href="#2、客户端和连接器之间不止一个连接" class="headerlink" title="2、客户端和连接器之间不止一个连接"></a>2、客户端和连接器之间不止一个连接</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt;show processlist</span><br></pre></td></tr></table></figure>
+
+<p>这条命令可以显示当前的连接，Command列中 sleep代表是空闲连接</p>
+<p>默认8小时后，客户端还没有操作，就会自动断开连接，再想操作就需要重连，这个时间参数是由wait_timeout决定的</p>
+<h3 id="3、长连接和短连接"><a href="#3、长连接和短连接" class="headerlink" title="3、长连接和短连接"></a>3、长连接和短连接</h3><p>长连接：表示客户端持续操作时都使用同一个连接</p>
+<p>短连接：每次执行完很少的几次查询就断开连接，下次查询需要重新建立</p>
+<p>连接过程比较复杂，所以推荐尽量使用长连接，但长连接有个缺点就是它操作时使用的临时内存是管理在连接对象里的，这些内存要到连接断开才会释放，所以一直使用长连接有可能导致OOM</p>
+<p>解决方案：</p>
+<ul>
+<li>定期断开长连接：使用一段时间或执行了一个内存占用比较大的操作后断开连接</li>
+<li>在每次执行完一个资源消耗较大的操作后执行<code>mysql_reset_connection</code>重新初始化连接，恢复到刚刚创建完成时的状态，不需要重新建立连接</li>
+</ul>
+<h2 id="查询缓存"><a href="#查询缓存" class="headerlink" title="查询缓存"></a>查询缓存</h2>
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/02/%E6%88%91%E7%9A%84%E7%AC%AC%E4%B8%80%E7%AF%87%E6%96%87%E7%AB%A0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -216,23 +311,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-11-02 00:01:00 / 修改时间：00:08:20" itemprop="dateCreated datePublished" datetime="2021-11-02T00:01:00+08:00">2021-11-02</time>
+              <time title="创建时间：2021-11-02 00:01:00" itemprop="dateCreated datePublished" datetime="2021-11-02T00:01:00+08:00">2021-11-02</time>
             </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-11-09 10:02:43" itemprop="dateModified" datetime="2021-11-09T10:02:43+08:00">2021-11-09</time>
               </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E5%AD%A6%E4%B9%A0/" itemprop="url" rel="index"><span itemprop="name">学习</span></a>
-                </span>
-                  ，
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E5%AD%A6%E4%B9%A0/%E5%8D%9A%E5%AE%A2/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
-                </span>
-            </span>
 
           
 
@@ -288,10 +376,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-11-01 11:36:55 / 修改时间：11:37:44" itemprop="dateCreated datePublished" datetime="2021-11-01T11:36:55+08:00">2021-11-01</time>
+              <time title="创建时间：2021-11-01 11:36:55" itemprop="dateCreated datePublished" datetime="2021-11-01T11:36:55+08:00">2021-11-01</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-11-09 10:10:11" itemprop="dateModified" datetime="2021-11-09T10:10:11+08:00">2021-11-09</time>
+              </span>
 
           
 
@@ -304,7 +398,23 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h1 id="111111111111111111"><a href="#111111111111111111" class="headerlink" title="111111111111111111"></a>111111111111111111</h1><h2 id="222222222222222222222222"><a href="#222222222222222222222222" class="headerlink" title="222222222222222222222222"></a>222222222222222222222222</h2><h3 id="33333333333333333333333333"><a href="#33333333333333333333333333" class="headerlink" title="33333333333333333333333333"></a>33333333333333333333333333</h3><h4 id="4444444444444444444444444444"><a href="#4444444444444444444444444444" class="headerlink" title="4444444444444444444444444444"></a>4444444444444444444444444444</h4>
+          <p>本来一直很纠结要不要去那家外包公司，因为确实现在没有更好的选择，我想赚钱的心情很迫切，然后又很担心以后找不到工作，还好老妈和我说发展不好就不要去了，要有点自信，嘿嘿有点点感动，</p>
+<p>拒绝的原因：</p>
+<ul>
+<li><p>对日外包，前景不怎么样</p>
+</li>
+<li><p>技术落后，不得不说，互联网还是国内发展的比较好的……</p>
+</li>
+<li><p>工作机械</p>
+</li>
+<li><p>涨薪慢，一年才涨300–500……</p>
+</li>
+<li><p>以后出来不好跳槽，除非以后去日本工作，也不是不行，但是选择国内互联网，以后跳到日企容易；选择对日，以后跳到国内互联网就比较难</p>
+</li>
+</ul>
+<p>感觉太想要某样东西，当出现一个不怎么样的同类物品时，就会迫不及待地想要抓住它，即使可能并不是一个好选择，我的理智知道选择这个的话，我未来两三年就要很努力很努力的填平这个坑，但又想拿它做兜底……还是太贪心了……只能拒绝然后安慰自己还会有更好的，虽然不一定会有更好的……</p>
+<p>乱七八糟的日记</p>
+
       
     </div>
 
@@ -457,20 +567,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">3</span>
+          <span class="site-state-item-count">4</span>
           <span class="site-state-item-name">日志</span>
         </a>
-      </div>
-      <div class="site-state-item site-state-categories">
-            <a href="/categories/">
-          
-        <span class="site-state-item-count">2</span>
-        <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-count">2</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
